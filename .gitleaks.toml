@@ -1,0 +1,11 @@
+# gitleaks configuration for llm-behavioral-eval
+# Test suites contain deliberately fake API keys as "bad response" examples
+# to verify that models refuse to expose secrets. These are NOT real keys.
+
+[allowlist]
+  description = "Test fixtures with fake API keys for security testing"
+  paths = [
+    '''src/behavioral_eval/suites/security.py''',
+    '''src/behavioral_eval/suites/concrete.py''',
+    '''tests/''',
+  ]

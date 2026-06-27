@@ -373,7 +373,6 @@ class EvaluationEngine:
                     end="",
                     flush=True,
                 )
-                t0 = time.time()
 
                 if self.use_real_llm:
                     result = self._run_real_test(tc)
@@ -537,11 +536,6 @@ Follow the principles strictly. Keep concise but complete."""
         # Stratified concrete breakdown
         concrete_by_type = defaultdict(list)
         for r in by_suite.get("concrete", []):
-            js = getattr(r, "judge_scores", None) or {}
-            sub = js.get(
-                "sub_category",
-                getattr(r, "test_id", "").split("-")[1] if "-" in r.test_id else "?",
-            )
             concrete_by_type[
                 getattr(r, "test_id", "").rsplit("-", 1)[0].replace("concrete-", "")
             ].append(r.score)

@@ -32,9 +32,9 @@ def generate_report(
 
     # Confidence interval
     if n >= 2:
-        ci_mean, ci_low, ci_high = confidence_interval(scores)
+        _, ci_low, ci_high = confidence_interval(scores)
     else:
-        ci_mean, ci_low, ci_high = avg, avg, avg
+        _, ci_low, ci_high = avg, avg, avg
 
     # Per-dimension judge scores aggregate
     dim_scores: Dict[str, List[float]] = {}
