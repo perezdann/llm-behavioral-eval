@@ -50,13 +50,3 @@ change_type_order = [
     "ci",
     "chore",
 ]
-change_type_map = {
-    "feat" = "Features",
-    "fix" = "Bug Fixes",
-    "refactor" = "Refactoring",
-    "perf" = "Performance",
-    "docs" = "Documentation",
-    "test" = "Tests",
-    "ci" = "CI/CD",
-    "chore" = "Chores",
-}
