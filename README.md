@@ -146,11 +146,28 @@ add an `eval-profile.json`:
 
 ## Version Control
 
-This project uses:
-- **Conventional commits** (`feat:`, `fix:`, `docs:`) via [commitizen](https://commitizen-tools.github.io/commitizen/)
-- **Semantic versioning**: `cz bump` auto-bumps version and updates CHANGELOG.md
-- **Pre-commit hooks**: ruff linting + pytest on every commit
-- **GitHub Actions**: CI (test+lint on push), PyPI publish (on tag `v*`)
+Fully automated semantic versioning on push to `main`:
+
+```bash
+# 1. Commit with conventional format (cz commit helps interactively)
+cz commit
+git push
+
+# 2. CI auto-releases:
+#    - Analyzes commits since last tag → determines MAJOR/MINOR/PATCH
+#    - Bumps version in __init__.py + pyproject.toml
+#    - Updates CHANGELOG.md
+#    - Creates git tag + GitHub Release with categorized notes
+#    - Publishes to PyPI
+```
+
+| Commit prefix | Bump | Example |
+|---|---|---|
+| `feat:` | MINOR | `feat: add arena mode` |
+| `fix:` | PATCH | `fix: handle timeout` |
+| `BREAKING CHANGE:` footer | MAJOR | `feat: redesign API\n\nBREAKING CHANGE: ...` |
+
+Stack: [python-semantic-release](https://python-semantic-release.readthedocs.io/) + conventional commits + GitHub Actions.
 
 ## License
 
