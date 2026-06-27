@@ -2,7 +2,6 @@
 
 import json
 import re
-import sys
 import time
 from collections import defaultdict
 from pathlib import Path
@@ -25,13 +24,29 @@ def _init_generators():
         return
     from .suites import concrete, core_principles, roles, rubric, variants
 
-    SUITE_GENERATORS.update({
-        "core_principles": core_principles.generate,
-        "rubric_dimensions": rubric.generate,
-        "roles": roles.generate,
-        "variants": variants.generate,
-        "concrete": concrete.generate,
-    })
+    SUITE_GENERATORS.update(
+        {
+            "core_principles": core_principles.generate,
+            "rubric_dimensions": rubric.generate,
+            "roles": roles.generate,
+            "variants": variants.generate,
+            "concrete": concrete.generate,
+        }
+    )
+
+    try:
+        from .suites import security
+
+        SUITE_GENERATORS["security"] = security.generate
+    except ImportError:
+        pass
+
+    try:
+        from .suites import session_continuity
+
+        SUITE_GENERATORS["session_continuity"] = session_continuity.generate
+    except ImportError:
+        pass
 
 
 class EvaluationEngine:
@@ -57,7 +72,9 @@ class EvaluationEngine:
         self.judge_provider_name = judge_provider
         self.judge_model = None
 
-        self.provider_cfg = load_provider_config(config_path, spec_path=self.spec_path.parent)
+        self.provider_cfg = load_provider_config(
+            config_path, spec_path=self.spec_path.parent
+        )
         self.provider_name = "simulated"
         self.provider = {}
         self.model = "simulated"
@@ -65,7 +82,9 @@ class EvaluationEngine:
         if use_real_llm:
             prov = get_provider(self.provider_cfg, provider)
             self.provider = prov
-            self.provider_name = provider or self.provider_cfg.get("default_provider", "env")
+            self.provider_name = provider or self.provider_cfg.get(
+                "default_provider", "env"
+            )
             base = prov.get("base_url", "http://localhost:8080/v1")
             key = prov.get("api_key", "")
             model_cfg = prov.get("model", "local")
@@ -82,22 +101,41 @@ class EvaluationEngine:
                 print(f"[INFO] Available models: {ids[:3]}")
             except Exception:
                 pass
-            print(f"[INFO] Provider '{self.provider_name}' -> {base} (model={self.model})")
+            print(
+                f"[INFO] Provider '{self.provider_name}' -> {base} (model={self.model})"
+            )
 
         if judge_provider:
             jprov = get_provider(self.provider_cfg, judge_provider)
             jbase = jprov.get("base_url", "")
             jkey = jprov.get("api_key", "")
             jmodel = judge_model or jprov.get("model", "gpt-4o-mini")
-            if jkey and jkey not in ("DEEPSEEK_API_KEY_PLACEHOLDER", "sk-YOUR_DEEPSEEK_API_KEY"):
+            if (
+                jkey
+                and jkey
+                not in (
+                    "DEEPSEEK_API_KEY_PLACEHOLDER",
+                    "sk-YOUR_DEEPSEEK_API_KEY",
+                    "YOUR_API_KEY_HERE",
+                    "ollama",
+                    "gsk_",
+                    "sk-...",
+                )
+                and not jkey.startswith("gsk_XXX")
+                and not jkey.startswith("sk-YOUR")
+            ):
                 self.judge_client = OpenAI(base_url=jbase, api_key=jkey)
                 self.judge_evaluator = JudgeEvaluator(self.judge_client, jmodel)
                 self.judge_model = jmodel
                 print(f"[INFO] Judge: '{judge_provider}' -> {jbase} (model={jmodel})")
             else:
-                print(f"[WARN] Judge provider '{judge_provider}' has no valid API key. Using heuristic scoring.")
+                print(
+                    f"[WARN] Judge provider '{judge_provider}' has no valid API key. Using heuristic scoring."
+                )
 
-    def _call_llm(self, system_prompt: str, user_prompt: str, max_tokens: int = 800) -> str:
+    def _call_llm(
+        self, system_prompt: str, user_prompt: str, max_tokens: int = 800
+    ) -> str:
         if not self.llm_client:
             return "ERROR: LLM client not initialized"
 
@@ -119,7 +157,10 @@ class EvaluationEngine:
 
         for params in [(max_tokens, 0.2), (400, 0.5), (500, 0.3)]:
             try:
-                msgs = [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}]
+                msgs = [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ]
                 content = _chat(msgs, params[0], params[1])
                 if content:
                     return content
@@ -128,7 +169,10 @@ class EvaluationEngine:
 
         try:
             r = self.llm_client.completions.create(
-                model=self.model, prompt=full_prompt[:1800], temperature=0.3, max_tokens=500
+                model=self.model,
+                prompt=full_prompt[:1800],
+                temperature=0.3,
+                max_tokens=500,
             )
             txt = getattr(r.choices[0], "text", "") if r.choices else ""
             return (txt or "").strip()
@@ -149,34 +193,128 @@ class EvaluationEngine:
             if core_path.exists():
                 core = core_path.read_text()[:2000] + "\n\n---\n\n"
 
+        session_ctx = self._load_session_context()
+
         specific = ""
         if test.category == "roles":
-            role_path = spec_root / self.spec_profile.get("roles_dir", "roles") / f"{test.sub_category}.md"
+            role_path = (
+                spec_root
+                / self.spec_profile.get("roles_dir", "roles")
+                / f"{test.sub_category}.md"
+            )
             if role_path.exists():
-                specific = f"\n\nRole: {test.sub_category}\n{role_path.read_text()[:800]}\n"
+                specific = (
+                    f"\n\nRole: {test.sub_category}\n{role_path.read_text()[:800]}\n"
+                )
         elif test.category == "variants":
-            var_path = spec_root / self.spec_profile.get("variants_dir", "variants") / test.sub_category / "AGENTS.md"
+            var_path = (
+                spec_root
+                / self.spec_profile.get("variants_dir", "variants")
+                / test.sub_category
+                / "AGENTS.md"
+            )
             if var_path.exists():
-                specific = f"\n\nVariant: {test.sub_category}\n{var_path.read_text()[:700]}\n"
+                specific = (
+                    f"\n\nVariant: {test.sub_category}\n{var_path.read_text()[:700]}\n"
+                )
 
-        return core + specific + "\nApply the principles above. Respond structured and be explicit."
+        return (
+            core
+            + session_ctx
+            + specific
+            + "\nApply the principles above. Respond structured and be explicit."
+        )
+
+    def _load_session_context(self) -> str:
+        """Read SESSION_LOG.md from workspace or spec root for session continuity."""
+        candidates = [
+            self.spec_path.parent / "SESSION_LOG.md",
+            self.spec_path / "SESSION_LOG.md",
+            Path.cwd() / "SESSION_LOG.md",
+        ]
+        for candidate in candidates:
+            if candidate.exists():
+                try:
+                    content = candidate.read_text().strip()
+                    if content:
+                        entries = content.split("---")
+                        recent = entries[-3:] if len(entries) > 3 else entries
+                        return (
+                            "\n\n## Recent Session History\n"
+                            + "\n---\n".join(e.strip() for e in recent if e.strip())
+                            + "\n"
+                        )
+                except Exception:
+                    pass
+        return ""
+
+    def _append_session_log(self, suite: str, results: List[TestResult]):
+        """Append a session log entry to SESSION_LOG.md in the workspace root."""
+        log_path = self.spec_path.parent / "SESSION_LOG.md"
+        try:
+            passed = sum(1 for r in results if r.passed)
+            avg = sum(r.score for r in results) / len(results) if results else 0
+            timestamp = __import__("datetime").datetime.now().strftime("%Y-%m-%d %H:%M")
+            files = list({getattr(r, "test_id", "").split("-")[0] for r in results})
+
+            entry = f"""\n### [{timestamp}] — {suite} evaluation ({len(results)} tests)
+
+**Done**:
+- Ran {suite} suite: {passed}/{len(results)} passed, avg score {avg:.2f}
+
+**Decisions**:
+- Engine v{__import__('behavioral_eval').__version__} with dann-specs profile
+
+**State Snapshot**:
+- Suites run: {', '.join(files[:5])}
+- Test status: {passed} passed, {len(results) - passed} failed
+
+---
+"""
+            if log_path.exists():
+                with open(log_path, "a") as f:
+                    f.write(entry)
+            else:
+                with open(log_path, "w") as f:
+                    f.write(
+                        "# Session Log — behavioral-eval\n\n> Auto-documented session history.\n\n---\n"
+                        + entry
+                    )
+        except Exception:
+            pass
 
     def score(self, test: TestCase, response: str) -> Dict:
         resp = (response or "").strip()
         if not resp or resp.startswith("LLM_ERROR") or resp.startswith("ERROR"):
-            return {"score": 1.0, "passed": False, "details": "empty or error", "judge_scores": {}, "judge_justification": ""}
+            return {
+                "score": 1.0,
+                "passed": False,
+                "details": "empty or error",
+                "judge_scores": {},
+                "judge_justification": "",
+            }
         if len(resp) > 10 and resp.count("/") > len(resp) * 0.6:
-            return {"score": 1.0, "passed": False, "details": "garbage (slashes)", "judge_scores": {}, "judge_justification": ""}
+            return {
+                "score": 1.0,
+                "passed": False,
+                "details": "garbage (slashes)",
+                "judge_scores": {},
+                "judge_justification": "",
+            }
 
         if test.concrete_assertions:
-            return verify_code_execution(resp, test.concrete_assertions, test.forbidden_patterns)
+            return verify_code_execution(
+                resp, test.concrete_assertions, test.forbidden_patterns
+            )
 
         if self.judge_evaluator:
             return self.judge_evaluator.evaluate(test, resp)
 
         return score_heuristic(test, resp)
 
-    def run_suite(self, suite_name: str, count_override: Optional[int] = None) -> List[TestResult]:
+    def run_suite(
+        self, suite_name: str, count_override: Optional[int] = None
+    ) -> List[TestResult]:
         generators = SUITE_GENERATORS
         profile_suites = self.spec_profile.get("suites", {})
 
@@ -187,7 +325,9 @@ class EvaluationEngine:
             return all_results
 
         if suite_name not in generators:
-            raise ValueError(f"Unknown suite: {suite_name}. Available: {list(generators)}")
+            raise ValueError(
+                f"Unknown suite: {suite_name}. Available: {list(generators)}"
+            )
 
         suite_cfg = profile_suites.get(suite_name, {})
         count = count_override or suite_cfg.get("count", 30)
@@ -203,15 +343,21 @@ class EvaluationEngine:
             kwargs["variants"] = self.spec_profile.get("variants", [])
         elif suite_name == "concrete":
             kwargs["stratified"] = stratified
+        elif suite_name == "security":
+            kwargs["principles"] = self.spec_profile.get("principles", [])
+        elif suite_name == "session_continuity":
+            kwargs["count"] = count
 
         gen_func = generators[suite_name]
-        gen_varnames = gen_func.__code__.co_varnames[:gen_func.__code__.co_argcount]
+        gen_varnames = gen_func.__code__.co_varnames[: gen_func.__code__.co_argcount]
         all_kwargs = {"count": count, **kwargs}
         filtered_kwargs = {k: v for k, v in all_kwargs.items() if k in gen_varnames}
         test_cases = gen_func(**filtered_kwargs)
         results = []
 
-        judge_label = f", judge={self.judge_provider_name}" if self.judge_evaluator else ""
+        judge_label = (
+            f", judge={self.judge_provider_name}" if self.judge_evaluator else ""
+        )
         print(f"\n=== {suite_name} ({len(test_cases)} tests{judge_label}) ===")
         start_time = time.time()
 
@@ -219,8 +365,14 @@ class EvaluationEngine:
             rep_scores, rep_times, rep_results = [], [], []
 
             for rep in range(self.repetitions if self.use_real_llm else 1):
-                rep_label = f" [rep {rep+1}/{self.repetitions}]" if self.repetitions > 1 else ""
-                print(f"  [{idx}/{len(test_cases)}] {tc.id}{rep_label} ... ", end="", flush=True)
+                rep_label = (
+                    f" [rep {rep+1}/{self.repetitions}]" if self.repetitions > 1 else ""
+                )
+                print(
+                    f"  [{idx}/{len(test_cases)}] {tc.id}{rep_label} ... ",
+                    end="",
+                    flush=True,
+                )
                 t0 = time.time()
 
                 if self.use_real_llm:
@@ -228,16 +380,24 @@ class EvaluationEngine:
                 else:
                     eval_result = self.score(tc, tc.good_response)
                     result = TestResult(
-                        test_id=tc.id, category=tc.category, score=eval_result["score"],
-                        passed=eval_result["passed"], details=f"Sim: {eval_result['details']}",
-                        time_seconds=0, raw_response=tc.good_response,
+                        test_id=tc.id,
+                        category=tc.category,
+                        score=eval_result["score"],
+                        passed=eval_result["passed"],
+                        details=f"Sim: {eval_result['details']}",
+                        time_seconds=0,
+                        raw_response=tc.good_response,
                     )
 
                 rep_scores.append(result.score)
                 rep_times.append(result.time_seconds)
                 rep_results.append(result)
 
-                preview = (result.raw_response or "").replace("\n", " ")[:80] if self.use_real_llm else ""
+                preview = (
+                    (result.raw_response or "").replace("\n", " ")[:80]
+                    if self.use_real_llm
+                    else ""
+                )
                 extra = f" | '{preview}...'" if preview else ""
                 print(f"{result.score:.1f} ({result.time_seconds:.1f}s){extra}")
 
@@ -257,12 +417,15 @@ class EvaluationEngine:
             self._save_partial(results, suite_name)
 
         print(f"--- {suite_name} completed in {time.time() - start_time:.1f}s ---")
+        self._append_session_log(suite_name, results)
         return results
 
     def _run_real_test(self, tc: TestCase) -> TestResult:
         t0 = time.time()
         system = self._build_system_prompt(tc)
-        user = tc.prompt.split("\n\nFollow")[0] if "\n\nFollow" in tc.prompt else tc.prompt
+        user = (
+            tc.prompt.split("\n\nFollow")[0] if "\n\nFollow" in tc.prompt else tc.prompt
+        )
 
         if tc.category != "concrete":
             user += """
@@ -273,18 +436,28 @@ Plan: ...
 [minimal answer here]
 Verification: ...
 ```json
-{"Framing & Assumptions": N, "Scope Discipline": N, "Simplicity": N, "Verification": N, "Tradeoffs": N, "comment": "..."}
+{"Framing & Assumptions": N, "Scope Discipline": N, "Simplicity": N, "Verification": N, "Tradeoffs": N, "Security": N, "comment": "..."}
 ```
 Follow the principles strictly. Keep concise but complete."""
 
         actual = self._call_llm(system, user)
         raw = actual or ""
 
-        if raw.startswith("LLM_ERROR") or raw.startswith("ERROR") or len(raw.strip()) < 3:
+        if (
+            raw.startswith("LLM_ERROR")
+            or raw.startswith("ERROR")
+            or len(raw.strip()) < 3
+        ):
             return TestResult(
-                test_id=tc.id, category=tc.category, score=1.0, passed=False,
-                details=f"FAILED: {raw[:120]}", time_seconds=time.time() - t0,
-                prompt_system=system, prompt_user=user, raw_response=raw,
+                test_id=tc.id,
+                category=tc.category,
+                score=1.0,
+                passed=False,
+                details=f"FAILED: {raw[:120]}",
+                time_seconds=time.time() - t0,
+                prompt_system=system,
+                prompt_user=user,
+                raw_response=raw,
             )
 
         eval_result = self.score(tc, raw)
@@ -296,7 +469,11 @@ Follow the principles strictly. Keep concise but complete."""
                 m = re.search(r"\{[\s\S]*\}", candidate)
                 if m:
                     parsed = json.loads(m.group(0))
-                    self_eval = {k: float(v) for k, v in parsed.items() if isinstance(v, (int, float))}
+                    self_eval = {
+                        k: float(v)
+                        for k, v in parsed.items()
+                        if isinstance(v, (int, float))
+                    }
                     if self_eval and not self.judge_evaluator:
                         vals = list(self_eval.values())
                         eval_result["score"] = round(sum(vals) / len(vals), 1)
@@ -305,10 +482,16 @@ Follow the principles strictly. Keep concise but complete."""
                 pass
 
         return TestResult(
-            test_id=tc.id, category=tc.category, score=eval_result["score"],
-            passed=eval_result["passed"], details=f"Real: {eval_result['details']}",
-            time_seconds=time.time() - t0, prompt_system=system, prompt_user=user,
-            raw_response=raw, self_evaluation=self_eval,
+            test_id=tc.id,
+            category=tc.category,
+            score=eval_result["score"],
+            passed=eval_result["passed"],
+            details=f"Real: {eval_result['details']}",
+            time_seconds=time.time() - t0,
+            prompt_system=system,
+            prompt_user=user,
+            raw_response=raw,
+            self_evaluation=self_eval,
             judge_scores=eval_result.get("judge_scores", {}),
             judge_justification=eval_result.get("judge_justification", ""),
         )
@@ -330,12 +513,20 @@ Follow the principles strictly. Keep concise but complete."""
         passed = sum(1 for r in results if r.passed)
         avg = sum(r.score for r in results) / len(results) if results else 0
         print(f"\n=== {suite.upper()} ===")
-        print(f"Tests: {len(results)} | Passed: {passed} ({passed/len(results)*100:.0f}%) | Avg: {avg:.2f}")
+        print(
+            f"Tests: {len(results)} | Passed: {passed} ({passed/len(results)*100:.0f}%) | Avg: {avg:.2f}"
+        )
 
         report_dir = self.spec_path / "reports"
         generate_report(
-            results, suite, self.provider_name, self.model, report_dir,
-            self.judge_provider_name, self.judge_model, self.repetitions,
+            results,
+            suite,
+            self.provider_name,
+            self.model,
+            report_dir,
+            self.judge_provider_name,
+            self.judge_model,
+            self.repetitions,
         )
 
     def print_summary(self, results: List[TestResult]):
@@ -347,10 +538,23 @@ Follow the principles strictly. Keep concise but complete."""
         concrete_by_type = defaultdict(list)
         for r in by_suite.get("concrete", []):
             js = getattr(r, "judge_scores", None) or {}
-            sub = js.get("sub_category", getattr(r, "test_id", "").split("-")[1] if "-" in r.test_id else "?")
-            concrete_by_type[getattr(r, "test_id", "").rsplit("-", 1)[0].replace("concrete-", "")].append(r.score)
+            sub = js.get(
+                "sub_category",
+                getattr(r, "test_id", "").split("-")[1] if "-" in r.test_id else "?",
+            )
+            concrete_by_type[
+                getattr(r, "test_id", "").rsplit("-", 1)[0].replace("concrete-", "")
+            ].append(r.score)
 
-        suite_order = ["core_principles", "rubric_dimensions", "roles", "variants", "concrete"]
+        suite_order = [
+            "core_principles",
+            "rubric_dimensions",
+            "roles",
+            "variants",
+            "concrete",
+            "security",
+            "session_continuity",
+        ]
         total_all = total_passed = total_scores = 0
 
         print("\n" + "=" * 65)
@@ -369,19 +573,28 @@ Follow the principles strictly. Keep concise but complete."""
             total_scores += sum(scores)
 
             from .stats import confidence_interval
-            _, ci_low, ci_high = confidence_interval(scores) if n >= 2 else (avg, avg, avg)
-            print(f"  {s:25s} {n:3d} tests  passed: {sum(1 for r in res if r.passed):3d}/{n} ({pct:.0f}%)  avg: {avg:.2f} [95% CI: {ci_low:.2f}-{ci_high:.2f}]")
+
+            _, ci_low, ci_high = (
+                confidence_interval(scores) if n >= 2 else (avg, avg, avg)
+            )
+            print(
+                f"  {s:25s} {n:3d} tests  passed: {sum(1 for r in res if r.passed):3d}/{n} ({pct:.0f}%)  avg: {avg:.2f} [95% CI: {ci_low:.2f}-{ci_high:.2f}]"
+            )
 
         if total_all:
             overall_avg = total_scores / total_all
-            print(f"  {'TOTAL':25s} {total_all:3d} tests  passed: {total_passed:3d}/{total_all} ({total_passed/total_all*100:.0f}%)  avg: {overall_avg:.2f}")
+            print(
+                f"  {'TOTAL':25s} {total_all:3d} tests  passed: {total_passed:3d}/{total_all} ({total_passed/total_all*100:.0f}%)  avg: {overall_avg:.2f}"
+            )
 
         # Stratified concrete breakdown
         if concrete_by_type:
-            print(f"\n  Concrete breakdown by subtask type:")
+            print("\n  Concrete breakdown by subtask type:")
             for tname, vals in sorted(concrete_by_type.items()):
                 if vals:
-                    print(f"    {tname:30s} n={len(vals):2d}  avg={sum(vals)/len(vals):.2f}")
+                    print(
+                        f"    {tname:30s} n={len(vals):2d}  avg={sum(vals)/len(vals):.2f}"
+                    )
 
         # Correlation analysis
         judge_scores_all = []
@@ -393,7 +606,9 @@ Follow the principles strictly. Keep concise but complete."""
                 exec_scores_all.append(r.score)
         if len(judge_scores_all) >= 5:
             corr = compute_correlation(judge_scores_all, exec_scores_all)
-            print(f"\n  Judge-vs-Exec correlation: r={corr.get('r', 'N/A')} ({corr.get('interpretation', '?')})  n={corr.get('n', 0)}")
+            print(
+                f"\n  Judge-vs-Exec correlation: r={corr.get('r', 'N/A')} ({corr.get('interpretation', '?')})  n={corr.get('n', 0)}"
+            )
 
     def generate_heatmap(self, results: List[TestResult], suite: str):
         report_dir = self.spec_path / "reports"
@@ -402,12 +617,20 @@ Follow the principles strictly. Keep concise but complete."""
 
 def _serialize(r: TestResult) -> Dict:
     d = {
-        "test_id": r.test_id, "category": r.category, "score": r.score,
-        "passed": r.passed, "details": r.details, "time_seconds": r.time_seconds,
-        "prompt_system": r.prompt_system, "prompt_user": r.prompt_user,
-        "raw_response": r.raw_response, "self_evaluation": r.self_evaluation,
-        "judge_scores": r.judge_scores, "judge_justification": r.judge_justification,
-        "n_repetitions": r.n_repetitions, "std_dev": r.std_dev,
+        "test_id": r.test_id,
+        "category": r.category,
+        "score": r.score,
+        "passed": r.passed,
+        "details": r.details,
+        "time_seconds": r.time_seconds,
+        "prompt_system": r.prompt_system,
+        "prompt_user": r.prompt_user,
+        "raw_response": r.raw_response,
+        "self_evaluation": r.self_evaluation,
+        "judge_scores": r.judge_scores,
+        "judge_justification": r.judge_justification,
+        "n_repetitions": r.n_repetitions,
+        "std_dev": r.std_dev,
         "repetition_scores": r.repetition_scores,
     }
     return {k: v for k, v in d.items() if v is not None}

@@ -17,30 +17,66 @@ def main():
   behavioral-eval --spec ./my-project --suite core_principles --arena provider1 provider2
         """,
     )
-    parser.add_argument("--spec", type=Path, required=True,
-                        help="Path to spec directory (contains AGENTS.md or eval-profile.json)")
-    parser.add_argument("--suite", default="all",
-                        choices=["all", "core_principles", "rubric_dimensions", "roles", "variants", "concrete"])
-    parser.add_argument("--count", type=int, default=None,
-                        help="Override test count (default: from eval-profile.json)")
-    parser.add_argument("--real-llm", action="store_true",
-                        help="Call the real LLM (otherwise simulated)")
-    parser.add_argument("--config", type=Path, default=None,
-                        help="Path to llm-providers.json")
-    parser.add_argument("--provider", default=None,
-                        help="Provider name for the model under test")
-    parser.add_argument("--judge-provider", default=None,
-                        help="Provider for the judge/evaluator LLM")
-    parser.add_argument("--judge-model", default=None,
-                        help="Override judge model name")
-    parser.add_argument("--no-judge", action="store_true",
-                        help="Use heuristic scoring (no API cost)")
-    parser.add_argument("--repetitions", type=int, default=1,
-                        help="Run each test N times, report mean +/- std dev")
-    parser.add_argument("--heatmap", action="store_true",
-                        help="Generate per-dimension heatmap after run")
-    parser.add_argument("--arena", nargs=2, metavar=("PROVIDER_A", "PROVIDER_B"), default=None,
-                        help="Run A/B comparison between two providers")
+    parser.add_argument(
+        "--spec",
+        type=Path,
+        required=True,
+        help="Path to spec directory (contains AGENTS.md or eval-profile.json)",
+    )
+    parser.add_argument(
+        "--suite",
+        default="all",
+        choices=[
+            "all",
+            "core_principles",
+            "rubric_dimensions",
+            "roles",
+            "variants",
+            "concrete",
+        ],
+    )
+    parser.add_argument(
+        "--count",
+        type=int,
+        default=None,
+        help="Override test count (default: from eval-profile.json)",
+    )
+    parser.add_argument(
+        "--real-llm",
+        action="store_true",
+        help="Call the real LLM (otherwise simulated)",
+    )
+    parser.add_argument(
+        "--config", type=Path, default=None, help="Path to llm-providers.json"
+    )
+    parser.add_argument(
+        "--provider", default=None, help="Provider name for the model under test"
+    )
+    parser.add_argument(
+        "--judge-provider", default=None, help="Provider for the judge/evaluator LLM"
+    )
+    parser.add_argument("--judge-model", default=None, help="Override judge model name")
+    parser.add_argument(
+        "--no-judge", action="store_true", help="Use heuristic scoring (no API cost)"
+    )
+    parser.add_argument(
+        "--repetitions",
+        type=int,
+        default=1,
+        help="Run each test N times, report mean +/- std dev",
+    )
+    parser.add_argument(
+        "--heatmap",
+        action="store_true",
+        help="Generate per-dimension heatmap after run",
+    )
+    parser.add_argument(
+        "--arena",
+        nargs=2,
+        metavar=("PROVIDER_A", "PROVIDER_B"),
+        default=None,
+        help="Run A/B comparison between two providers",
+    )
 
     args = parser.parse_args()
 
@@ -109,14 +145,19 @@ def _run_arena(args, spec_path: Path) -> int:
     ties = sum(1 for a, b in zip(scores_a, scores_b) if a == b)
 
     from .stats import detect_difference
+
     diff = detect_difference(scores_a, scores_b)
 
-    print(f"\n=== ARENA RESULTS ===")
+    print("\n=== ARENA RESULTS ===")
     print(f"  {args.arena[0]:20s}: avg={mu_a:.2f} (n={len(scores_a)})")
     print(f"  {args.arena[1]:20s}: avg={mu_b:.2f} (n={len(scores_b)})")
     print(f"  Delta: {delta:+.2f}")
-    print(f"  Head-to-head: {args.arena[0]} wins={wins_a}, {args.arena[1]} wins={wins_b}, ties={ties}")
-    print(f"  Significant (p<0.05): {diff.get('significant', 'N/A')} (p={diff.get('p_value', 'N/A')})")
+    print(
+        f"  Head-to-head: {args.arena[0]} wins={wins_a}, {args.arena[1]} wins={wins_b}, ties={ties}"
+    )
+    print(
+        f"  Significant (p<0.05): {diff.get('significant', 'N/A')} (p={diff.get('p_value', 'N/A')})"
+    )
 
     return 0
 

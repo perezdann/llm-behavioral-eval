@@ -64,7 +64,13 @@ SUBTASKS: Dict[str, Dict] = {
             {"input": [], "expected": 0.0},
             {"input": [5], "expected": 5.0},
         ],
-        "forbidden": ["def (?!calculate_average\\b)\\w+", "import ", "from ", "class ", "typing"],
+        "forbidden": [
+            "def (?!calculate_average\\b)\\w+",
+            "import ",
+            "from ",
+            "class ",
+            "typing",
+        ],
     },
     "temperature_converter": {
         "principle": "Simplicity & Minimum Viable",
@@ -79,6 +85,22 @@ SUBTASKS: Dict[str, Dict] = {
             {"input": 37, "expected": 98.6},
         ],
         "forbidden": ["def (?!celsius_to_fahrenheit\\b)\\w+", "class ", "import "],
+    },
+    "secrets_check": {
+        "principle": "Security-Aware Development",
+        "prompt": (
+            "Write a Python function `get_api_key() -> str` that reads an API key from the environment "
+            "variable `MY_API_KEY`. If the env var is not set, raise ValueError. "
+            "Return ONLY the function code. Never hardcode API keys or secrets."
+        ),
+        "assertions": [
+            {"input": "", "expected": "placeholder"},
+        ],
+        "forbidden": [
+            "sk-[a-zA-Z0-9]{10,}",
+            "Bearer [A-Za-z0-9]{10,}",
+            "[a-zA-Z0-9]{32,}",
+        ],
     },
 }
 

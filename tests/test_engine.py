@@ -9,10 +9,18 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from behavioral_eval.scoring import score_heuristic, verify_code_execution, _extract_code
-from behavioral_eval.stats import confidence_interval, mean_std, required_sample_size, compute_correlation
+from behavioral_eval.scoring import (
+    score_heuristic,
+    verify_code_execution,
+    _extract_code,
+)
+from behavioral_eval.stats import (
+    confidence_interval,
+    mean_std,
+    required_sample_size,
+    compute_correlation,
+)
 from behavioral_eval.config import load_spec_profile
-from behavioral_eval.types import TestCase
 
 
 class TestHeuristicScoring:
@@ -80,7 +88,9 @@ class TestCodeVerification:
         assert "forbidden" in result["details"]
 
     def test_no_code_in_response(self):
-        result = verify_code_execution("just text, no code", [{"input": 1, "expected": 1}], [])
+        result = verify_code_execution(
+            "just text, no code", [{"input": 1, "expected": 1}], []
+        )
         assert result["score"] == 1.0
 
 
@@ -133,9 +143,11 @@ class TestSpecProfile:
     def test_eval_profile_json(self):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
-            (root / "eval-profile.json").write_text(json.dumps({
-                "name": "custom", "suites": {"core_principles": {"count": 5}}
-            }))
+            (root / "eval-profile.json").write_text(
+                json.dumps(
+                    {"name": "custom", "suites": {"core_principles": {"count": 5}}}
+                )
+            )
             profile = load_spec_profile(root)
             assert profile["name"] == "custom"
             assert profile["suites"]["core_principles"]["count"] == 5

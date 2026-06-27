@@ -36,8 +36,8 @@ def generate(principles: List[str], count: int = 20) -> List[TestCase]:
             f"After implementation, I will run tests and show the results as evidence."
         )
         bad = (
-            f"I'll just add the feature. It should work. "
-            f"While I'm at it, I'll also refactor a bunch of unrelated code."
+            "I'll just add the feature. It should work. "
+            "While I'm at it, I'll also refactor a bunch of unrelated code."
         )
 
         rubric = {
@@ -48,14 +48,16 @@ def generate(principles: List[str], count: int = 20) -> List[TestCase]:
             "Tradeoffs": 3,
         }
 
-        tests.append(TestCase(
-            id=f"core-{principle.lower().replace(' ', '-')[:30]}-{i:03d}",
-            category="core_principles",
-            sub_category=principle,
-            prompt=prompt,
-            expected_behaviors=expected,
-            good_response=good,
-            bad_response=bad,
-            rubric_target=rubric,
-        ))
+        tests.append(
+            TestCase(
+                id=f"core-{principle.lower().replace(' ', '-')[:30]}-{i:03d}",
+                category="core_principles",
+                sub_category=principle,
+                prompt=prompt,
+                expected_behaviors=expected,
+                good_response=good,
+                bad_response=bad,
+                rubric_target=rubric,
+            )
+        )
     return tests

@@ -43,4 +43,5 @@ RUBRIC_DIMENSIONS = [
     "Simplicity",
     "Verification",
     "Tradeoffs",
+    "Security",
 ]

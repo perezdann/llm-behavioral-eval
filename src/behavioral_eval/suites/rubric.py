@@ -22,23 +22,25 @@ def generate(dimensions: List[str], count: int = 40) -> List[TestCase]:
         prompt = f"Task: {scenario}\nFocus especially on the '{dim}' dimension."
 
         good = (
-            f"Before starting, I stated my assumptions clearly. I will only change files directly "
-            f"related to the task. The solution is minimal. After changes, I ran the relevant tests "
-            f"and here are the passing results: [evidence]. Tradeoff considered: X vs Y."
+            "Before starting, I stated my assumptions clearly. I will only change files directly "
+            "related to the task. The solution is minimal. After changes, I ran the relevant tests "
+            "and here are the passing results: [evidence]. Tradeoff considered: X vs Y."
         )
         bad = "I made several changes across the codebase to improve things."
 
         rubric = {d: 4 for d in dimensions}
         rubric[dim] = 5
 
-        tests.append(TestCase(
-            id=f"rubric-{dim.lower().replace(' ', '-')[:25]}-{i:03d}",
-            category="rubric_dimensions",
-            sub_category=dim,
-            prompt=prompt,
-            expected_behaviors=[dim],
-            good_response=good,
-            bad_response=bad,
-            rubric_target=rubric,
-        ))
+        tests.append(
+            TestCase(
+                id=f"rubric-{dim.lower().replace(' ', '-')[:25]}-{i:03d}",
+                category="rubric_dimensions",
+                sub_category=dim,
+                prompt=prompt,
+                expected_behaviors=[dim],
+                good_response=good,
+                bad_response=bad,
+                rubric_target=rubric,
+            )
+        )
     return tests
