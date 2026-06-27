@@ -4,10 +4,10 @@ build-backend = "hatchling.build"
 
 [project]
 name = "llm-behavioral-eval"
-version = "1.0.0"
+version = "1.0.1"
 description = "Evaluate LLMs against behavioral specifications (AGENTS.md, Claude.md, custom rules)"
 readme = "README.md"
-license = {text = "MIT"}
+license = {text = "GPL-3.0-only"}
 requires-python = ">=3.9"
 dependencies = [
     "openai>=1.0.0",

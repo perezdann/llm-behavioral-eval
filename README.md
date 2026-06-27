@@ -29,3 +29,7 @@ behavioral-eval --spec ./dann-specs/project --arena llama-home ollama-home --cou
 - **A/B Arena**: compare two models head-to-head with statistical significance
 - **Heatmaps**: per-dimension score breakdowns
 - **Spec-agnostic**: evaluates any behavioral specification directory
+
+## License
+
+GPL-3.0-only. See [LICENSE](LICENSE).
