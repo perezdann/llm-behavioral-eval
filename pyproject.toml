@@ -17,6 +17,7 @@ dependencies = [
 dev = [
     "pytest>=7.0",
     "scipy>=1.10",
+    "commitizen>=3.0",
 ]
 
 [project.scripts]
@@ -27,3 +28,35 @@ packages = ["src/behavioral_eval"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+tag_format = "v$version"
+version_scheme = "pep440"
+version_provider = "pep621"
+update_changelog_on_bump = true
+changelog_file = "CHANGELOG.md"
+changelog_incremental = true
+
+[tool.commitizen.customize]
+change_type_order = [
+    "BREAKING CHANGE",
+    "feat",
+    "fix",
+    "refactor",
+    "perf",
+    "docs",
+    "test",
+    "ci",
+    "chore",
+]
+change_type_map = {
+    "feat" = "Features",
+    "fix" = "Bug Fixes",
+    "refactor" = "Refactoring",
+    "perf" = "Performance",
+    "docs" = "Documentation",
+    "test" = "Tests",
+    "ci" = "CI/CD",
+    "chore" = "Chores",
+}

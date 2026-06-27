@@ -1,0 +1,21 @@
+[tool.commitizen]
+name = "cz_conventional_commits"
+tag_format = "v$version"
+version_scheme = "pep440"
+version_provider = "pep621"
+update_changelog_on_bump = true
+changelog_file = "CHANGELOG.md"
+changelog_incremental = true
+
+[tool.commitizen.customize]
+change_type_order = [
+    "BREAKING CHANGE",
+    "feat",
+    "fix",
+    "refactor",
+    "perf",
+    "docs",
+    "test",
+    "ci",
+    "chore",
+]
