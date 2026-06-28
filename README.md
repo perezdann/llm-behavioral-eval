@@ -172,3 +172,7 @@ Stack: [python-semantic-release](https://python-semantic-release.readthedocs.io/
 ## License
 
 GPL-3.0-only. See [LICENSE](LICENSE).
+
+---
+
+**English** | [Español](README.es.md)
